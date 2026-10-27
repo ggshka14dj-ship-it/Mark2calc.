@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mark II · Rust Calculator</title>
+<style>
+:root{
+  --bg:#1c1a17; --panel:#2b2722; --panel2:#37312a; --rust:#b8481f; --rust2:#e0662a;
+  --amber:#ffb23e; --amber-dim:#3a2a10; --ink:#e9dfd0; --steel:#5a544b; --hazard:#e8b21a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:'Russo One','Arial Black',Impact,sans-serif}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{display:flex;justify-content:center;padding:14px 10px;
+  background:radial-gradient(ellipse at 50% 0,#3a2c1e 0,#1c1a17 60%)}
+.car{width:100%;max-width:420px;background:
+  repeating-linear-gradient(92deg,rgba(255,255,255,.015) 0 2px,rgba(0,0,0,.05) 2px 4px),
+  linear-gradient(160deg,#3a342c,#26221d 60%,#2f2418);
+  border:3px solid #14120f;border-radius:14px;padding:12px;position:relative;
+  box-shadow:0 0 0 2px #5a4a38,0 20px 40px rgba(0,0,0,.6),inset 0 0 40px rgba(184,72,31,.18)}
+.car::before,.car::after{content:"";position:absolute;top:8px;width:9px;height:9px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#9b8f7e,#2a2620);box-shadow:0 0 0 1px #111}
+.car::before{left:8px}.car::after{right:8px}
+.hazard{height:10px;border-radius:2px;margin:0 14px 10px;
+  background:repeating-linear-gradient(-45deg,var(--hazard) 0 10px,#17140f 10px 20px);opacity:.85}
+.badge{display:flex;justify-content:space-between;align-items:center;padding:0 14px 8px;font-size:12px;letter-spacing:.5px}
+.badge b{font-size:20px;color:var(--rust2);text-shadow:0 1px 0 #000,0 0 8px rgba(224,102,42,.4);letter-spacing:2px}
+.badge span{color:#9b8f7e;font-size:11px}
+.cluster{background:#0d0b09;border:2px solid #000;border-radius:10px;padding:10px;
+  box-shadow:inset 0 0 18px #000,0 0 0 2px #4a4034;display:grid;grid-template-columns:88px 1fr;gap:10px;align-items:center}
+.gauge{width:88px;height:88px}
+.gauge .ring{fill:#120e09;stroke:#4a4034;stroke-width:2}
+.gauge .tick{stroke:var(--amber);stroke-width:1.5;opacity:.8}
+.gauge text{fill:var(--amber);font-family:'Share Tech Mono',monospace;font-size:7px;text-anchor:middle}
+#needle{stroke:#ff4a1c;stroke-width:2;stroke-linecap:round;transform-origin:44px 48px;transition:transform .5s cubic-bezier(.3,1.4,.5,1);filter:drop-shadow(0 0 2px #ff4a1c)}
+.lcd{font-family:'Share Tech Mono','Courier New',monospace;color:var(--amber);text-shadow:0 0 6px rgba(255,178,62,.6);
+  background:var(--amber-dim);border-radius:6px;padding:6px 8px;min-height:84px;display:flex;flex-direction:column;justify-content:space-between;
+  box-shadow:inset 0 0 10px rgba(0,0,0,.8);overflow:hidden;min-width:0}
+.lcd .top{display:flex;justify-content:space-between;font-size:11px;opacity:.75}
+.lcd .hist{font-size:12px;opacity:.55;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:15px}
+.lcd .expr{font-size:16px;text-align:right;white-space:nowrap;overflow-x:auto;scrollbar-width:none;min-height:20px}
+.lcd .expr::-webkit-scrollbar{display:none}
+.lcd .res{font-size:30px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1}
+.lcd .res.err{color:#ff5a3a}
+.keys{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:12px}
+button{font-family:inherit;font-size:16px;color:var(--ink);border:2px solid #0f0d0a;border-radius:6px;min-height:46px;cursor:pointer;
+  background:linear-gradient(180deg,#4a4339,#2f2a23);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 3px 0 #0f0d0a;padding:0;
+  transition:transform .06s,box-shadow .06s,background .15s}
+button:hover{background:linear-gradient(180deg,#5a5145,#38322a)}
+button:active,button.press{transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 0 0 #0f0d0a}
+button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button.sci{font-size:13px;background:linear-gradient(180deg,#3b362e,#26221c);color:#cdbfa8}
+button.mem{font-size:13px;background:linear-gradient(180deg,#403528,#2a2118);color:var(--amber)}
+button.op{background:linear-gradient(180deg,#7a3a1d,#4f2410);color:#ffd9b0}
+button.op:hover{background:linear-gradient(180deg,#95451f,#5f2b12)}
+button.clr{background:linear-gradient(180deg,#8a2a14,#5a170a);color:#ffd0c0}
+button.eq{grid-column:span 2;background:linear-gradient(180deg,var(--rust2),var(--rust));color:#1a0c05;font-size:22px;text-shadow:0 1px 0 rgba(255,255,255,.25)}
+button.eq:hover{background:linear-gradient(180deg,#f27a3a,#c9521f)}
+button.mode.on{color:#1a0c05;background:linear-gradient(180deg,#ffc15c,#d98c1c)}
+.foot{display:flex;justify-content:space-between;padding:10px 14px 0;font-size:10px;color:#8a7e6d;font-family:'Share Tech Mono',monospace}
+@media (max-width:360px){button{font-size:14px;min-height:42px}.lcd .res{font-size:24px}}
+@media (prefers-reduced-motion:reduce){#needle,button{transition:none}}
+</style>
+</head>
+<body>
+<div class="car">
+  <div class="hazard"></div>
+  <div class="badge"><b>MARK II</b><span>TOURER V · 1JZ-GTE · RUST EDITION</span></div>
+  <div class="cluster">
+    <svg class="gauge" viewBox="0 0 88 88" aria-hidden="true">
+      <circle class="ring" cx="44" cy="44" r="42"/>
+      <g id="ticks"></g>
+      <text x="44" y="70">LOG₁₀</text>
+      <line id="needle" x1="44" y1="48" x2="44" y2="14" style="transform:rotate(-120deg)"/>
+      <circle cx="44" cy="48" r="4" fill="#2a2620" stroke="#ff4a1c"/>
+    </svg>
+    <div class="lcd" aria-live="polite">
+      <div class="top"><span id="mode">DEG</span><span id="memi"></span></div>
+      <div class="hist" id="hist"></div>
+      <div class="expr" id="expr"></div>
+      <div class="res" id="res">0</div>
+    </div>
+  </div>
+  <div class="keys" id="keys"></div>
+  <div class="hazard" style="margin-top:12px;margin-bottom:0"></div>
+  <div class="foot"><span>ПРОБЕГ: ∞ КМ</span><span>СКРАП: 0</span></div>
+</div>
+<script>
+(function(){
+var expr='',hist='',ans=0,mem=0,deg=true,justEq=false;
+var $=function(i){return document.getElementById(i)};
+var L=[
+['MC','mem','mc'],['MR','mem','mr'],['M+','mem','m+'],['M−','mem','m-'],['DEG','sci mode on','deg'],
+['sin','sci','sin('],['cos','sci','cos('],['tan','sci','tan('],['ln','sci','ln('],['log','sci','log('],
+['√','sci','sqrt('],['x²','sci','sq'],['xʸ','sci','^'],['n!','sci','!'],['π','sci','pi'],
+['AC','clr','ac'],['⌫','clr','bs'],['(','sci','('],[')','sci',')'],['÷','op','/'],
+['7','','7'],['8','','8'],['9','','9'],['×','op','*'],['e','sci','e'],
+['4','','4'],['5','','5'],['6','','6'],['−','op','-'],['%','sci','%'],
+['1','','1'],['2','','2'],['3','','3'],['+','op','+'],['±','sci','neg'],
+['0','','0'],['.','','.'],['ANS','sci','ans'],['=','eq','eq']
+];
+var keys=$('keys');
+L.forEach(function(k){var b=document.createElement('button');b.textContent=k[0];b.className=k[1];b.dataset.k=k[2];
+  b.setAttribute('aria-label',k[0]);keys.appendChild(b)});
+keys.addEventListener('click',function(e){var b=e.target.closest('button');if(b)press(b.dataset.k,b)});
+
+var t=$('ticks'),s='';
+for(var i=0;i<=12;i++){var a=(-120+i*20)*Math.PI/180,r1=i%3?36:33,r2=40;
+  s+='<line class="tick" x1="'+(44+r1*Math.sin(a))+'" y1="'+(44-r1*Math.cos(a))+'" x2="'+(44+r2*Math.sin(a))+'" y2="'+(44-r2*Math.cos(a))+'"/>'}
+t.innerHTML=s;
+
+function fact(n){if(n<0||n!==Math.floor(n)||n>170)throw 0;var r=1;for(var i=2;i<=n;i++)r*=i;return r}
+function evalExpr(src){
+  var o=(src.match(/\(/g)||[]).length-(src.match(/\)/g)||[]).length;
+  while(o-->0)src+=')';
+  var re=/\s*(\d+\.?\d*|\.\d+|[a-z]+|[-+*\/^()!%])/g,tk=[],m,last=0;
+  while((m=re.exec(src))){if(m.index!==last)throw 0;tk.push(m[1]);last=re.lastIndex}
+  if(last!==src.length)throw 0;
+  var p=0;
+  function peek(){return tk[p]}
+  function ex(){var v=tm();while(peek()==='+'||peek()==='-'){var o=tk[p++];var r=tm();v=o==='+'?v+r:v-r}return v}
+  function tm(){var v=pw();while(peek()==='*'||peek()==='/'){var o=tk[p++];var r=pw();if(o==='/'&&r===0)throw 0;v=o==='*'?v*r:v/r}return v}
+  function pw(){var b=un();if(peek()==='^'){p++;return Math.pow(b,pw())}return b}
+  function un(){if(peek()==='-'){p++;return -un()}if(peek()==='+'){p++;return un()}return po()}
+  function po(){var v=pr();while(peek()==='!'||peek()==='%'){v=tk[p++]==='!'?fact(v):v/100}return v}
+  function pr(){
+    var x=tk[p++];
+    if(x===undefined)throw 0;
+    if(/^[\d.]/.test(x))return parseFloat(x);
+    if(x==='('){var v=ex();if(tk[p++]!==')')throw 0;return v}
+    if(x==='pi')return Math.PI;
+    if(x==='e')return Math.E;
+    if(x==='ans')return ans;
+    var f={sin:1,cos:1,tan:1,ln:1,log:1,sqrt:1};
+    if(f[x]){if(tk[p++]!=='(')throw 0;var a=ex();if(tk[p++]!==')')throw 0;
+      var k=Math.PI/180;
+      if(x==='sin')return deg?Math.sin(a*k):Math.sin(a);
+      if(x==='cos')return deg?Math.cos(a*k):Math.cos(a);
+      if(x==='tan'){if(deg&&Math.abs(a%180)===90)throw 0;return deg?Math.tan(a*k):Math.tan(a)}
+      if(x==='ln'){if(a<=0)throw 0;return Math.log(a)}
+      if(x==='log'){if(a<=0)throw 0;return Math.log(a)/Math.LN10}
+      if(x==='sqrt'){if(a<0)throw 0;return Math.sqrt(a)}}
+    throw 0;
+  }
+  var v=ex();if(p!==tk.length)throw 0;
+  if(!isFinite(v))throw 0;
+  v=parseFloat(v.toPrecision(12));
+  if(Math.abs(v)<1e-12)v=0;
+  return v;
+}
+function fmt(v){var a=Math.abs(v);if(a!==0&&(a>=1e12||a<1e-7))return v.toExponential(6).replace(/\.?0+e/,'e');return String(v)}
+
+function setNeedle(v){var m=Math.log10(Math.abs(v)+1);var a=-120+Math.min(m,12)/12*240;$('needle').style.transform='rotate('+a+'deg)'}
+function render(){
+  $('expr').textContent=expr;$('expr').scrollLeft=1e5;
+  $('hist').textContent=hist;
+  $('memi').textContent=mem!==0?'M':'';
+  $('mode').textContent=deg?'DEG':'RAD';
+  var r=$('res');r.classList.remove('err');
+  if(!expr){r.textContent=fmt(justEq?ans:0);return}
+  try{var v=evalExpr(expr);r.textContent=fmt(v);setNeedle(v)}
+  catch(e){r.textContent=/[+\-*\/^(]$/.test(expr)||/[a-z]\($/.test(expr)?'…':'ERR';if(r.textContent==='ERR')r.classList.add('err')}
+}
+function curVal(){try{return evalExpr(expr||'0')}catch(e){return null}}
+function add(x){
+  if(justEq){if(/^[\d.]|^pi$|^e$|^ans$|^[a-z]+\($|^\($/.test(x))expr='';justEq=false;hist=''}
+  expr+=x;
+}
+function press(k,btn){
+  if(btn){btn.classList.add('press');setTimeout(function(){btn.classList.remove('press')},90)}
+  if(/^[\d.]$/.test(k)){
+    if(k==='.'){var m=expr.match(/[\d.]*$/)[0];if(m.indexOf('.')>-1)return}
+    add(k);
+  }else if(/^[-+*\/]$/.test(k)){
+    if(justEq){expr=fmt(ans);justEq=false;hist=''}
+    if(!expr&&k!=='-')expr=fmt(ans);
+    if(/[-+*\/^]$/.test(expr)&&expr.length>1)expr=expr.slice(0,-1);
+    expr+=k;
+  }else switch(k){
+    case 'ac':expr='';hist='';justEq=false;$('needle').style.transform='rotate(-120deg)';break;
+    case 'bs':if(justEq){expr='';justEq=false}else expr=expr.replace(/(sin\(|cos\(|tan\(|ln\(|log\(|sqrt\(|pi|ans|.)$/,'');break;
+    case 'eq':
+      if(!expr)break;
+      try{var v=evalExpr(expr);hist=expr+' =';ans=v;expr=fmt(v);justEq=true;setNeedle(v);
+        render();$('hist').textContent=hist;return}
+      catch(e){$('res').textContent='ERR';$('res').classList.add('err');return}
+    case 'deg':deg=!deg;btn.classList.toggle('on',deg);btn.textContent=deg?'DEG':'RAD';break;
+    case 'mc':mem=0;break;
+    case 'mr':add(fmt(mem));break;
+    case 'm+':case 'm-':var c=curVal();if(c!==null){mem+=k==='m+'?c:-c;mem=parseFloat(mem.toPrecision(12))}break;
+    case 'sq':if(expr){var c2=curVal();if(c2!==null){expr='('+expr+')^2';justEq=false}}break;
+    case '^':case '!':case '%':if(!expr)break;justEq=false;expr+=k;break;
+    case 'neg':
+      if(!expr){expr='(-';break}
+      if(/\(-(\d+\.?\d*)\)$/.test(expr))expr=expr.replace(/\(-(\d+\.?\d*)\)$/,'$1');
+      else if(/\d+\.?\d*$/.test(expr))expr=expr.replace(/(\d+\.?\d*)$/,'(-$1)');
+      else expr+='(-';
+      justEq=false;break;
+    default:add(k);
+  }
+  render();
+}
+document.addEventListener('keydown',function(e){
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  var k=e.key,m=null;
+  if(/^[\d.]$/.test(k)||/^[-+*\/()^!%]$/.test(k))m=k;
+  else if(k===','){m='.'}
+  else if(k==='Enter'||k==='='){m='eq'}
+  else if(k==='Backspace'){m='bs'}
+  else if(k==='Escape'||k==='Delete'){m='ac'}
+  else if(k==='p'){m='pi'}
+  if(m===null)return;
+  e.preventDefault();
+  var b=keys.querySelector('[data-k="'+m.replace(/(["\\])/g,'\\$1')+'"]');
+  press(m,b);
+});
+render();
+})();
+</script>
+</body>
+</html>
